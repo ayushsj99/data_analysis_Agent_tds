@@ -1,0 +1,95 @@
+<!-- frontend/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data Analyst Agent</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .result-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: .5rem;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .result-card h4 {
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: .5rem;
+            margin-bottom: 1rem;
+        }
+        pre {
+            background-color: #e9ecef;
+            padding: 1rem;
+            border-radius: .3rem;
+            white-space: pre-wrap; /* Allows text to wrap */
+            word-wrap: break-word;
+        }
+        .plot-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: .3rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body class="p-4 bg-light">
+    <div class="container">
+        <h1>📊 Data Analyst Agent</h1>
+        <p class="lead">Upload a .txt file with a URL and a set of questions for the agent to answer.</p>
+        
+        <form method="post" enctype="multipart/form-data" class="mb-4">
+            <div class="mb-3">
+                <label for="task" class="form-label">**Upload your task (.txt)**</label>
+                <input class="form-control" type="file" id="task" name="task" required>
+            </div>
+            <!-- You can add attachment inputs here if needed -->
+            <button class="btn btn-primary" type="submit">Submit for Analysis</button>
+        </form>
+
+        <!-- Display Error First if it exists -->
+        {% if error %}
+            <div class="alert alert-danger mt-4">
+                <strong>Error:</strong> {{ error }}
+            </div>
+        {% endif %}
+
+        <!-- Results Section -->
+        {% if task_text %}
+            <div class="result-card">
+                <h4>📝 Task</h4>
+                <pre>{{ task_text }}</pre>
+
+                {% if reasoning %}
+                    <h4 class="mt-4">🤔 Agent's Reasoning</h4>
+                    <pre>{{ reasoning }}</pre>
+                {% endif %}
+
+                {% if dataframe_preview %}
+                    <h4 class="mt-4">📋 Data Preview</h4>
+                    <pre>{{ dataframe_preview }}</pre>
+                {% endif %}
+                
+                <!-- NEW SECTION TO DISPLAY FINAL ANSWERS -->
+                {% if final_answers %}
+                    <h4 class="mt-4">✅ Final Answers</h4>
+                    <ul class="list-group">
+                        {% for answer in final_answers %}
+                            <li class="list-group-item">
+                                <!-- Check if the answer is a plot -->
+                                {% if answer.startswith('data:image/png;base64,') %}
+                                    <p>Generated Plot:</p>
+                                    <img src="{{ answer }}" alt="Generated Plot" class="plot-image">
+                                {% else %}
+                                    {{ answer }}
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,17 @@
+Nobel Prize Laureates (Text & Categorical Data)
+This question focuses on extracting and analyzing categorical data, requiring the agent to count occurrences and handle text-based information.
+
+Prompt:
+
+Scrape the list of Nobel laureates by country from Wikipedia. It is at the URL:
+https://en.wikipedia.org/wiki/List_of_Nobel_laureates_by_country
+
+Answer the following questions and respond with a JSON array of strings containing the answer.
+
+How many Nobel laureates are from Japan (including Japanese-born)?
+
+Which country has the 5th highest number of Nobel laureates?
+
+What is the total number of laureates for all Scandinavian countries combined (Denmark, Norway, Sweden)?
+
+Create a pie chart showing the distribution of the top 5 countries by laureate count. Return it as a base-64 encoded data URI under 100,000 bytes.

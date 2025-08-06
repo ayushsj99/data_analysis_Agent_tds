@@ -1,0 +1,17 @@
+ Tallest Buildings (Handling Units & Messy Data)
+This tests the agent's ability to clean data with mixed units (meters/feet) and handle potentially missing or inconsistent entries.
+
+Prompt:
+
+Scrape the list of tallest buildings from Wikipedia. It is at the URL:
+https://en.wikipedia.org/wiki/List_of_tallest_buildings
+
+Answer the following questions and respond with a JSON array of strings containing the answer.
+
+How many buildings on the list are taller than 500 meters?
+
+What is the average height (in meters) of the top 20 tallest buildings?
+
+Which city has the most buildings in the top 50?
+
+Draw a histogram showing the distribution of building heights (in meters) for all buildings on the list. Use 10 bins. Return it as a base-64 encoded data URI under 100,000 bytes.

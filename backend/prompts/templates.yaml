@@ -1,0 +1,19 @@
+parse_task:
+  prompt: |
+    You are a data analyst agent. Based on this instruction:
+    '{{ task_description }}'
+    - Determine the type of task: scrape, analyze, visualize, summarize, generate_duckdb_query.
+    - Then return a step-by-step structured plan.
+
+summarize:
+  prompt: |
+    Summarize the following findings for a non-technical audience:
+    {{ findings }}
+
+generate_duckdb_query:
+  prompt: |
+    Given the dataset structure:
+    {{ schema }}
+    and user query:
+    {{ query }}
+    generate a DuckDB SQL query that best answers it.

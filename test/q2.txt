@@ -1,0 +1,17 @@
+ World Population Analysis (Numerical Data & Bar Chart)
+This question tests the agent's ability to work with large numbers, calculate growth, and create a different type of plot.
+
+Prompt:
+
+Scrape the list of countries and dependencies by population from Wikipedia. It is at the URL:
+https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population
+
+Answer the following questions and respond with a JSON array of strings containing the answer.
+
+How many countries have a population over 100 million?
+
+What is the total population of the top 10 most populous countries combined?
+
+What is the population of the country ranked 50th?
+
+Draw a horizontal bar chart showing the population of the 10 least populous countries. Return it as a base-64 encoded data URI under 100,000 bytes.

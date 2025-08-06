@@ -1,0 +1,17 @@
+Academy Awards (Date/Time & Complex Filtering)
+This question requires the agent to parse and filter data based on years and categories, testing its logical reasoning on a large dataset.
+
+Prompt:
+
+Scrape the list of Best Picture winners from the Academy Awards on Wikipedia. It is at the URL:
+https://en.wikipedia.org/wiki/List_of_Academy_Award_winners_and_nominees_for_Best_Picture
+
+Answer the following questions and respond with a JSON array of strings containing the answer.
+
+How many films won Best Picture in the 1990s (from the 1990 to 1999 ceremonies)?
+
+What was the first color film to win Best Picture? (Hint: The table has a column indicating this).
+
+Which film won Best Picture at the 50th Academy Awards?
+
+Create a bar chart showing the number of Best Picture wins per decade (1920s, 1930s, 1940s, etc.). Return it as a base-64 encoded data URI under 100,000 bytes.
