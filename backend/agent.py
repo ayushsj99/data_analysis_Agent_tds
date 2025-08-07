@@ -1,108 +1,135 @@
 # backend/agent.py
 
+import json
+import logging
+import re
+import pandas as pd
 from .llm_agent import llm
-# --- MODIFICATION: Import both tools ---
 from .toolkits.fetch import extract_relevant_data
 from .toolkits.analyze import analyze_data
+from .toolkits.duckdb_runner import generate_and_run_query
 from .toolkits.file_handler import extract_content
-import re
-import logging
 
 logger = logging.getLogger(__name__)
 
-def get_reasoning(task_text: str) -> str:
-    """Gets the initial high-level plan from the LLM."""
-    prompt = f"""
-You are a helpful AI assistant designed to solve analytical tasks.
+def get_plan(task_text: str) -> list:
+    """
+    Generates a structured, multi-step plan for which tools to run in order.
+    """
+    logger.info("🤖 Generating a plan...")
 
-TOOLS AVAILABLE:
-- fetch(url): Scrapes a web page to get a raw data table.
-- analyze(data, task): Analyzes the data to answer questions.
-
-YOUR TASK:
-\"\"\"
-{task_text}
-\"\"\"
-
-Plan your approach step by step. ONLY describe your plan. Do not call any tools yet.
+    tools_description = """
+- **duckdb_runner.generate_and_run_query(task: str)**: Use for querying large datasets on S3. The user's prompt will contain the S3 path.
+- **fetch.extract_relevant_data(url: str, task_description: str)**: Use for scraping a standard webpage URL.
+- **analyze.analyze_data(data_context: dict, task: str)**: Use for complex Python-based analysis on data already loaded by a previous step.
 """
-    return llm(prompt).strip()
 
-def extract_url_from_reasoning(reasoning: str) -> str:
-    """
-    Extracts the first URL found in the reasoning text using a reliable regex.
-    """
-    # This is a more direct and efficient way to find the URL.
-    match = re.search(r'(https?://[^\s`\'"]+)', reasoning)
-    if match:
-        url = match.group(1)
-        logger.info(f"🔍 Extracted URL using regex: {url}")
-        return url
-    logger.warning("⚠️ No URL found in reasoning.")
-    return None
+    prompt = f"""
+You are an Expert AI Planner. Your role is to create the most logical and efficient plan to solve the user's task by using the available tools.
 
-def handle_task(task_text: str, attachments: dict = None) -> dict:
-    """
-    Main agent logic that orchestrates the fetch and analyze tools.
-    """
-    attachments = attachments or {}
-    logger.info("📥 Received task: %s", task_text.strip())
+**User's Task:**
+---
+{task_text}
+---
 
-    # --- Step 1: Combine task text with any file attachments ---
-    extracted_files_content = []
-    if attachments:
-        logger.info("📂 Extracting attached files...")
-        for filename, content in attachments.items():
-            try:
-                # Assuming extract_content returns text for .txt files
-                extracted_text = extract_content(filename, content)
-                if isinstance(extracted_text, str):
-                     extracted_files_content.append(f"---\nContent from {filename}\n\n{extracted_text.strip()}")
-                else:
-                    # Handle cases where attachments might be dataframes directly
-                    logger.warning(f"Attachment {filename} was not text, skipping for now.")
-            except Exception as e:
-                logger.error(f"❌ Failed to extract from {filename}: {e}")
+**Available Tools:**
+---
+{tools_description}
+---
 
-    full_task_text = task_text.strip()
-    if extracted_files_content:
-        full_task_text += "\n\n--- ADDITIONAL CONTEXT FROM ATTACHED FILES ---\n" + "\n\n".join(extracted_files_content)
+**CRITICAL Instructions:**
+1.  **Use Provided URLs/Paths:** If the user's task includes a URL (like `https://...` or `s3://...`), you MUST use that exact URL/path in the tools you call. DO NOT invent or assume a different one.
+2.  **Create a Plan:** Create a step-by-step plan using one or more of the available tools.
+3.  **Output Format:** Your output MUST be a valid JSON list of dictionaries. Each dictionary must have "tool_name", "tool_input", and a unique "step_name".
 
-
-    # --- Step 2: Get a high-level plan and extract the URL ---
-    reasoning = get_reasoning(full_task_text)
-    logger.info(f"🧠 Agent Reasoning:\n{reasoning}")
-    url = extract_url_from_reasoning(reasoning)
-
-    # Initialize results dictionary to track the process
-    results = {
-        "task": full_task_text,
-        "reasoning": reasoning,
-        "dataframe_preview": None,
-        "final_answers": None,
-        "error": None
-    }
-
-    if not url:
-        results["error"] = "Could not identify a URL to scrape from the task."
-        logger.error(results["error"])
-        return results
-
+**YOUR PLAN (as a JSON list):**
+"""
+    
     try:
-        # --- Step 3: Call the 'fetch' tool to get the data ---
-        logger.info("--- Calling Fetch Tool ---")
-        scraped_df = extract_relevant_data(url, full_task_text)
-        results["dataframe_preview"] = scraped_df.head().to_markdown()
-        logger.info("✅ Fetch tool completed.")
-
-        # --- Step 4: Call the 'analyze' tool with the scraped data ---
-        logger.info("--- Calling Analyze Tool ---")
-        final_answers = analyze_data(scraped_df, full_task_text)
-        results["final_answers"] = final_answers
-        logger.info(f"✅✅✅ Task completed successfully! Final answers: {final_answers}")
-
+        plan_str = llm(prompt).strip()
+        match = re.search(r'\[\s*\{.*\}\s*\]', plan_str, re.DOTALL)
+        if not match:
+            raise ValueError("LLM did not return a valid JSON list.")
+        
+        plan = json.loads(match.group(0))
+        logger.info(f"✅ Plan generated successfully: {plan}")
+        return plan
     except Exception as e:
-        logger.error(f"🔥🔥🔥 Agent execution failed: {e}", exc_info=True)
-        results["error"] = str(e)
+        logger.error(f"❌ Failed to generate or parse a valid plan: {e}")
+        raise RuntimeError("The AI failed to generate a valid execution plan.")
+
+
+def handle_task(task_text: str, attachments: dict = None, max_global_retries: int = 1) -> dict:
+    """
+    Main agent logic that generates a plan and orchestrates the autonomous tools.
+    """
+    logger.info("📥 Received task: %s", task_text.strip())
+    full_task_text = task_text.strip()
+
+    for attempt in range(max_global_retries):
+        logger.info(f"--- Starting Agent Execution: Attempt {attempt + 1} of {max_global_retries} ---")
+        
+        results = {
+            "task": full_task_text,
+            "reasoning": "Planner-based execution with autonomous tools. See logs for details.",
+            "dataframe_preview": "",
+            "final_answers": None,
+            "error": None
+        }
+
+        try:
+            plan = get_plan(full_task_text)
+            data_context = {}
+            
+            for i, step in enumerate(plan):
+                tool_name = step.get("tool_name")
+                tool_input = step.get("tool_input")
+                step_name = step.get("step_name", f"step_{i+1}")
+                
+                logger.info(f"--- Step {i+1} ({step_name}): Executing Tool: {tool_name} ---")
+
+                step_result = None
+                if tool_name == "duckdb_runner.generate_and_run_query":
+                    if not isinstance(tool_input, dict):
+                        raise TypeError(f"Expected a dictionary for duckdb_runner input, but got {type(tool_input)}")
+                    
+                    task_for_tool = tool_input.get("task")
+                    if not task_for_tool:
+                        raise ValueError("Plan for 'duckdb_runner' tool is missing a 'task' in its input.")
+                    
+                    step_result = generate_and_run_query(task=task_for_tool)
+                
+                elif tool_name == "fetch.extract_relevant_data":
+                    if not isinstance(tool_input, dict):
+                        raise TypeError(f"Expected a dictionary for fetch tool input, but got {type(tool_input)}")
+                    url = tool_input.get("url")
+                    task_desc = tool_input.get("task_description")
+                    if not url:
+                        raise ValueError("Plan for 'fetch' tool is missing a URL.")
+                    step_result = extract_relevant_data(url, task_desc)
+
+                elif tool_name == "analyze.analyze_data":
+                    step_result = analyze_data(data_context, full_task_text)
+                
+                else:
+                    raise ValueError(f"Unknown tool in plan: {tool_name}")
+
+                data_context[step_name] = step_result
+
+                if isinstance(step_result, pd.DataFrame):
+                    results["dataframe_preview"] += f"\n--- Preview for Step: {step_name} ---\n{step_result.head().to_markdown()}"
+                else:
+                    results["final_answers"] = step_result
+
+            logger.info("✅✅✅ Task completed successfully on global attempt %d!", attempt + 1)
+            return results
+
+        except Exception as e:
+            logger.error(f"🔥🔥🔥 Agent execution failed on attempt {attempt + 1}: {e}", exc_info=True)
+            results["error"] = str(e)
+            if attempt + 1 == max_global_retries:
+                logger.error("❌ Agent failed on all attempts.")
+                return results
+            logger.warning("⚠️ Retrying entire agent execution from the beginning...")
 
     return results

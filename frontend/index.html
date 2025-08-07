@@ -32,21 +32,36 @@
             border-radius: .3rem;
             margin-top: 1rem;
         }
+        /* NEW: Style for the loading state */
+        #loading-state {
+            display: none; /* Hidden by default */
+            text-align: center;
+            padding: 2rem;
+            background-color: #f8f9fa;
+            border-radius: .5rem;
+        }
     </style>
 </head>
 <body class="p-4 bg-light">
     <div class="container">
         <h1>📊 Data Analyst Agent</h1>
-        <p class="lead">Upload a .txt file with a URL and a set of questions for the agent to answer.</p>
+        <p class="lead">Upload a .txt file with a URL or a data query for the agent to answer.</p>
         
         <form method="post" enctype="multipart/form-data" class="mb-4">
             <div class="mb-3">
                 <label for="task" class="form-label">**Upload your task (.txt)**</label>
                 <input class="form-control" type="file" id="task" name="task" required>
             </div>
-            <!-- You can add attachment inputs here if needed -->
             <button class="btn btn-primary" type="submit">Submit for Analysis</button>
         </form>
+
+        <!-- NEW: Loading state display -->
+        <div id="loading-state">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Analyzing... (<span id="live-timer">0.0</span>s)</p>
+        </div>
 
         <!-- Display Error First if it exists -->
         {% if error %}
@@ -57,6 +72,13 @@
 
         <!-- Results Section -->
         {% if task_text %}
+            <!-- Timer Display for final result -->
+            {% if final_answers or error %}
+            <div class="alert alert-info">
+                <strong>Total Time Taken:</strong> <span id="final-timer">0.00</span> seconds
+            </div>
+            {% endif %}
+
             <div class="result-card">
                 <h4>📝 Task</h4>
                 <pre>{{ task_text }}</pre>
@@ -71,14 +93,12 @@
                     <pre>{{ dataframe_preview }}</pre>
                 {% endif %}
                 
-                <!-- NEW SECTION TO DISPLAY FINAL ANSWERS -->
                 {% if final_answers %}
                     <h4 class="mt-4">✅ Final Answers</h4>
                     <ul class="list-group">
                         {% for answer in final_answers %}
                             <li class="list-group-item">
-                                <!-- Check if the answer is a plot -->
-                                {% if answer.startswith('data:image/png;base64,') %}
+                                {% if 'data:image' in answer|string %}
                                     <p>Generated Plot:</p>
                                     <img src="{{ answer }}" alt="Generated Plot" class="plot-image">
                                 {% else %}
@@ -91,5 +111,50 @@
             </div>
         {% endif %}
     </div>
+
+    <!-- JavaScript for Timer and Loading State -->
+    <script>
+        const form = document.querySelector('form');
+        const loadingStateDiv = document.getElementById('loading-state');
+        const liveTimerDisplay = document.getElementById('live-timer');
+        const finalTimerDisplay = document.getElementById('final-timer');
+        let timerInterval;
+
+        // 1. On form submission, show loading state and start the live timer
+        form.addEventListener('submit', () => {
+            // Hide the form and show the loading spinner
+            form.style.display = 'none';
+            loadingStateDiv.style.display = 'block';
+
+            const startTime = Date.now();
+            sessionStorage.setItem('startTime', startTime);
+
+            // Start an interval to update the timer every 100ms
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                liveTimerDisplay.textContent = elapsed.toFixed(1);
+            }, 100);
+        });
+
+        // 2. When the page loads with results, calculate and display the final time
+        window.addEventListener('load', () => {
+            const startTime = sessionStorage.getItem('startTime');
+
+            // Check if a timer was started and if the final timer element exists
+            if (startTime && finalTimerDisplay) {
+                const endTime = Date.now();
+                const timeTaken = (endTime - startTime) / 1000;
+                finalTimerDisplay.textContent = timeTaken.toFixed(2);
+
+                // Clean up so the timer doesn't run again on a manual refresh
+                sessionStorage.removeItem('startTime');
+            }
+
+            // Always clear any lingering intervals
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        });
+    </script>
 </body>
 </html>
