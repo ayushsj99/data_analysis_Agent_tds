@@ -1,19 +1,99 @@
 from google import genai
+from openai import OpenAI  # Updated import
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize Gemini client with your API key
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+# Load environment variables
+LLM_PROVIDER = "openai"
+
+# Initialize Gemini (keep as is)
+gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+
+# Initialize OpenAI client properly
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def llm(prompt: str) -> str:
     """
-    Basic wrapper to call Gemini LLM with a prompt.
-    Returns the response as plain text.
+    Unified LLM interface using either Gemini or OpenAI based on env config.
     """
     try:
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-        return response.text.strip()
+        if LLM_PROVIDER == "gemini":
+            # GEMINI: Keep code untouched
+            response = gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            return response.text.strip()
+        
+        elif LLM_PROVIDER == "openai":
+            # CORRECTED OPENAI IMPLEMENTATION
+            # Option 1: Using Chat Completions API (recommended and stable)
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response.choices[0].message.content.strip()
+            
+            # Option 2: Using Responses API (if you specifically need it)
+            # response = openai_client.responses.create(
+            #     model="gpt-4o-mini",
+            #     input=prompt
+            # )
+            # return response.output_text.strip()
+        
+        else:
+            return f"LLM error: Unknown provider '{LLM_PROVIDER}'"
+
     except Exception as e:
         return f"LLM error: {str(e)}"
+
+
+
+# from google import genai
+# import openai
+# import os
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+# # Load environment variables
+# LLM_PROVIDER = "openai"  # Default to OpenAI, can be set to "gemini" for Google Gemini
+
+# # Initialize Gemini
+# gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+
+# # Initialize OpenAI
+# openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# def llm(prompt: str) -> str:
+#     """
+#     Unified LLM interface using either Gemini or OpenAI based on env config.
+#     """
+#     try:
+#         if LLM_PROVIDER == "gemini":
+#             # GEMINI: Keep code untouched
+#             response = gemini_client.models.generate_content(
+#                 model="gemini-2.5-flash",
+#                 contents=prompt
+#             )
+#             return response.text.strip()
+        
+#         elif LLM_PROVIDER == "openai":
+#             # OPENAI: ChatCompletion with GPT-4o
+#             response = openai.responses.create(
+#                 model="gpt-4o-mini",
+#                 messages=[
+#                     {"role": "user", "content": prompt}
+#                 ]
+#             )
+#             return response.output_text
+        
+#         else:
+#             return f"LLM error: Unknown provider '{LLM_PROVIDER}'"
+
+#     except Exception as e:
+#         return f"LLM error: {str(e)}"

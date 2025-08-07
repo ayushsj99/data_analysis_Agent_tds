@@ -7,7 +7,7 @@ import pandas as pd
 from .llm_agent import llm
 from .toolkits.fetch import extract_relevant_data
 from .toolkits.analyze import analyze_data
-from .toolkits.duckdb_runner import generate_and_run_query
+from .toolkits.duckdb_runner import generate_and_run_script
 from .toolkits.file_handler import extract_content
 
 logger = logging.getLogger(__name__)
@@ -18,10 +18,18 @@ def get_plan(task_text: str) -> list:
     """
     logger.info("🤖 Generating a plan...")
 
-    tools_description = """
-- **duckdb_runner.generate_and_run_query(task: str)**: Use for querying large datasets on S3. The user's prompt will contain the S3 path.
-- **fetch.extract_relevant_data(url: str, task_description: str)**: Use for scraping a standard webpage URL.
-- **analyze.analyze_data(data_context: dict, task: str)**: Use for complex Python-based analysis on data already loaded by a previous step.
+    tools_description = tools_description = """
+- **duckdb_runner.generate_and_run_query(task: str)**: 
+  - **Use Case**: Use for any task that requires querying a large dataset (e.g., on S3). This tool will autonomously generate and execute the necessary SQL.
+  - **Input**: The `tool_input` should be a clear and specific string describing the task for this step.
+
+- **fetch.extract_relevant_data(url: str, task_description: str)**: 
+  - **Use Case**: Use for scraping a standard webpage URL.
+  - **Input**: The `tool_input` should be a JSON object with "url" and "task_description" keys.
+
+- **analyze.analyze_data(data_context: dict, task: str)**: 
+  - **Use Case**: Use for complex Python-based analysis on data already loaded by a previous step.
+  - **Input**: The `tool_input` should be the user's original task description string.
 """
 
     prompt = f"""
@@ -36,6 +44,12 @@ You are an Expert AI Planner. Your role is to create the most logical and effici
 ---
 {tools_description}
 ---
+
+
+**Strategy Guide:**
+- **For Web Scraping Tasks:** Always create a two-step plan.
+    1.  **`fetch` step:** Write a simple script to get the raw data. The most robust code is usually `result = pd.read_html(url)[0]`.
+    2.  **`analyze` step:** Write a comprehensive script to perform ALL data cleaning, analysis, calculations, and plotting. This script should anticipate messy data (e.g., complex column names, non-numeric values) and clean it before performing the analysis.
 
 **CRITICAL Instructions:**
 1.  **Use Provided URLs/Paths:** If the user's task includes a URL (like `https://...` or `s3://...`), you MUST use that exact URL/path in the tools you call. DO NOT invent or assume a different one.
@@ -90,15 +104,15 @@ def handle_task(task_text: str, attachments: dict = None, max_global_retries: in
 
                 step_result = None
                 if tool_name == "duckdb_runner.generate_and_run_query":
-                    if not isinstance(tool_input, dict):
-                        raise TypeError(f"Expected a dictionary for duckdb_runner input, but got {type(tool_input)}")
-                    
-                    task_for_tool = tool_input.get("task")
-                    if not task_for_tool:
-                        raise ValueError("Plan for 'duckdb_runner' tool is missing a 'task' in its input.")
-                    
-                    step_result = generate_and_run_query(task=task_for_tool)
-                
+                    if not isinstance(tool_input, str):
+                        raise TypeError(f"Expected a string for duckdb_runner input, but got {type(tool_input)}")
+
+                    # task_for_tool = tool_input.get("task")
+                    # if not task_for_tool:
+                    #     raise ValueError("Plan for 'duckdb_runner' tool is missing a 'task' in its input.")
+
+                    step_result = generate_and_run_script(task=tool_input, full_task_context=full_task_text)
+
                 elif tool_name == "fetch.extract_relevant_data":
                     if not isinstance(tool_input, dict):
                         raise TypeError(f"Expected a dictionary for fetch tool input, but got {type(tool_input)}")
