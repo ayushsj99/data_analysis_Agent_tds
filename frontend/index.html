@@ -32,7 +32,6 @@
             border-radius: .3rem;
             margin-top: 1rem;
         }
-        /* NEW: Style for the loading state */
         #loading-state {
             display: none; /* Hidden by default */
             text-align: center;
@@ -55,7 +54,6 @@
             <button class="btn btn-primary" type="submit">Submit for Analysis</button>
         </form>
 
-        <!-- NEW: Loading state display -->
         <div id="loading-state">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -63,16 +61,13 @@
             <p class="mt-3">Analyzing... (<span id="live-timer">0.0</span>s)</p>
         </div>
 
-        <!-- Display Error First if it exists -->
         {% if error %}
             <div class="alert alert-danger mt-4">
                 <strong>Error:</strong> {{ error }}
             </div>
         {% endif %}
 
-        <!-- Results Section -->
         {% if task_text %}
-            <!-- Timer Display for final result -->
             {% if final_answers or error %}
             <div class="alert alert-info">
                 <strong>Total Time Taken:</strong> <span id="final-timer">0.00</span> seconds
@@ -84,8 +79,13 @@
                 <pre>{{ task_text }}</pre>
 
                 {% if reasoning %}
-                    <h4 class="mt-4">🤔 Agent's Reasoning</h4>
+                    <h4 class="mt-4">🤖 Agent's Plan & Generated Code</h4>
                     <pre>{{ reasoning }}</pre>
+                {% endif %}
+
+                {% if execution_log %}
+                    <h4 class="mt-4">🛠️ Tool Correction Log</h4>
+                    <pre>{{ execution_log | join('\n\n') }}</pre>
                 {% endif %}
 
                 {% if dataframe_preview %}
@@ -95,24 +95,28 @@
                 
                 {% if final_answers %}
                     <h4 class="mt-4">✅ Final Answers</h4>
-                    <ul class="list-group">
-                        {% for answer in final_answers %}
-                            <li class="list-group-item">
-                                {% if 'data:image' in answer|string %}
-                                    <p>Generated Plot:</p>
-                                    <img src="{{ answer }}" alt="Generated Plot" class="plot-image">
-                                {% else %}
-                                    {{ answer }}
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                    </ul>
+                    <!-- THE FIX: Use valid Jinja2 syntax to check if the answer is a JSON object string -->
+                    {% if final_answers|string|trim|first == '{' %}
+                        <pre>{{ final_answers }}</pre>
+                    {% else %}
+                        <ul class="list-group">
+                            {% for answer in final_answers %}
+                                <li class="list-group-item">
+                                    {% if 'data:image' in answer|string %}
+                                        <p>Generated Plot:</p>
+                                        <img src="{{ answer }}" alt="Generated Plot" class="plot-image">
+                                    {% else %}
+                                        {{ answer }}
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
                 {% endif %}
             </div>
         {% endif %}
     </div>
 
-    <!-- JavaScript for Timer and Loading State -->
     <script>
         const form = document.querySelector('form');
         const loadingStateDiv = document.getElementById('loading-state');
@@ -120,37 +124,37 @@
         const finalTimerDisplay = document.getElementById('final-timer');
         let timerInterval;
 
-        // 1. On form submission, show loading state and start the live timer
         form.addEventListener('submit', () => {
-            // Hide the form and show the loading spinner
+            const resultCard = document.querySelector('.result-card');
+            const errorAlert = document.querySelector('.alert-danger');
+            const finalTimerAlert = document.querySelector('.alert-info');
+
+            if (resultCard) resultCard.style.display = 'none';
+            if (errorAlert) errorAlert.style.display = 'none';
+            if (finalTimerAlert) finalTimerAlert.style.display = 'none';
+
             form.style.display = 'none';
             loadingStateDiv.style.display = 'block';
 
             const startTime = Date.now();
             sessionStorage.setItem('startTime', startTime);
 
-            // Start an interval to update the timer every 100ms
             timerInterval = setInterval(() => {
                 const elapsed = (Date.now() - startTime) / 1000;
                 liveTimerDisplay.textContent = elapsed.toFixed(1);
             }, 100);
         });
 
-        // 2. When the page loads with results, calculate and display the final time
         window.addEventListener('load', () => {
             const startTime = sessionStorage.getItem('startTime');
 
-            // Check if a timer was started and if the final timer element exists
             if (startTime && finalTimerDisplay) {
                 const endTime = Date.now();
                 const timeTaken = (endTime - startTime) / 1000;
                 finalTimerDisplay.textContent = timeTaken.toFixed(2);
-
-                // Clean up so the timer doesn't run again on a manual refresh
                 sessionStorage.removeItem('startTime');
             }
 
-            // Always clear any lingering intervals
             if (timerInterval) {
                 clearInterval(timerInterval);
             }

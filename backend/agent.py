@@ -5,54 +5,97 @@ import logging
 import re
 import pandas as pd
 from .llm_agent import llm
-from .toolkits.fetch import extract_relevant_data
-from .toolkits.analyze import analyze_data
-from .toolkits.duckdb_runner import generate_and_run_query
+from .toolkits.fetch import execute_fetch
+from .toolkits.analyze import execute_analysis
+from .toolkits.duckdb_runner import execute_query
 from .toolkits.file_handler import extract_content
 
 logger = logging.getLogger(__name__)
 
-def get_plan(task_text: str) -> list:
+def get_plan_with_code(task_text: str) -> list:
     """
-    Generates a structured, multi-step plan for which tools to run in order.
+    Generates a structured plan where the LLM writes the code for each step.
     """
-    logger.info("🤖 Generating a plan...")
+    logger.info("🤖 Generating a plan with executable code...")
 
-    tools_description = """
-- **duckdb_runner.generate_and_run_query(task: str)**: Use for querying large datasets on S3. The user's prompt will contain the S3 path.
-- **fetch.extract_relevant_data(url: str, task_description: str)**: Use for scraping a standard webpage URL.
-- **analyze.analyze_data(data_context: dict, task: str)**: Use for complex Python-based analysis on data already loaded by a previous step.
+    tools_description = tools_description = """
+- **duckdb_runner**:
+  - **Use Case**: Best for querying large, structured datasets (e.g., Parquet files on S3). Ideal for filtering, aggregating, joining, and performing calculations directly on the data at its source.
+  - **Strengths**: Extremely fast for large-scale data operations. Use this to "push down" computation and only retrieve the specific data you need for analysis.
+  - **Input**: The `tool_input` must be a single, complete, and valid DuckDB SQL query string.
+  - **Returns**: A pandas DataFrame.
+
+- **fetch**:
+  - **Use Case**: Use for scraping data from a single, standard webpage URL (e.g., a Wikipedia article).
+  - **Strengths**: Good for extracting tables or text from HTML content.
+  - **Input**: The `tool_input` must be a JSON object with three keys: "url", "task", and "code".
+  - **Code Instructions**: The `code` should be a Python script that uses the pre-defined `url` variable. The most robust method is `tables = pd.read_html(url)`. The script must find the correct table from the `tables` list and assign the final, raw pandas DataFrame to a variable named `result`.
+  - **Returns**: A pandas DataFrame.
+
+- **analyze**:
+  - **Use Case**: This is the primary tool for performing complex analysis in Python. Use it for tasks that are difficult or impossible in SQL, such as statistical modeling, creating visualizations (plots), or complex data cleaning and transformation.
+  - **Strengths**: Can synthesize results from multiple previous steps. It has access to a `data_context` dictionary containing the outputs of all prior steps.
+  - **Input**: The `tool_input` must be a JSON object with two keys: "task" and "code".
+  - **Code Instructions**: The `code` should be a Python script. It must access the data from previous steps using the `data_context` dictionary (e.g., `df = data_context['step_1_result']`). The script should perform all necessary cleaning, calculations, and plotting. The script MUST assign the final answer to a variable named `result`.
+  - **Returns**: The final answer. The format of the answer **must match the format requested in the user's task** (e.g., a JSON object, a JSON array of strings). If no specific format is requested, the default return type is a Python `list`.
 """
 
     prompt = f"""
-You are an Expert AI Planner. Your role is to create the most logical and efficient plan to solve the user's task by using the available tools.
+You are an Expert Data analyst agent, AI Planner and Coder. Your role is to create the most logical and efficient multi-step plan to solve the user's task by writing the executable code for each step.
 
 **User's Task:**
 ---
 {task_text}
 ---
 
-**Available Tools:**
+**Available Tools & Use Cases:**
 ---
 {tools_description}
 ---
 
-**CRITICAL Instructions:**
-1.  **Use Provided URLs/Paths:** If the user's task includes a URL (like `https://...` or `s3://...`), you MUST use that exact URL/path in the tools you call. DO NOT invent or assume a different one.
-2.  **Create a Plan:** Create a step-by-step plan using one or more of the available tools.
-3.  **Output Format:** Your output MUST be a valid JSON list of dictionaries. Each dictionary must have "tool_name", "tool_input", and a unique "step_name".
+**Instructions:**
+1.  Break down the user's task into logical steps.
+2.  For each step, choose the appropriate tool (`duckdb_runner`, `fetch`, or `analyze`).
+3.  **Write the complete, executable code** (either SQL or Python) for the `tool_input` of each step.
+4.  Your output MUST be a valid JSON list of dictionaries, each with "tool_name", "tool_input", and a unique "step_name".
+5.  **CRITICAL Input Formatting:**
+    - For `duckdb_runner`, the `tool_input` must be a single SQL string.
+    - For `fetch`, the `tool_input` MUST be a JSON object with three keys: "url", "task", and "code".
+    - For `analyze`, the `tool_input` MUST be a JSON object with two keys: "task" and "code".
+6.  **CRITICAL:** The Python code you write must be a simple, top-level script. **DO NOT wrap your code in a function definition (e.g., `def my_function(): ...`)**. The script MUST assign its final output to a variable named `result`.
+7.  IMPORTANT: import the libraries inside the function as the exec() function is used in the tools for execution and it does not support imports outside the function scope.
 
-**YOUR PLAN (as a JSON list):**
-"""
-    
+**return YOUR PLAN as a JSON object**
+**Example Plan:**
+```json
+[
+  {{
+    "tool_name": "duckdb_runner",
+    "step_name": "get_case_counts",
+    "tool_input": "INSTALL httpfs; LOAD httpfs; INSTALL parquet; LOAD parquet; SELECT court, COUNT(*) AS case_count FROM read_parquet('s3://indian-high-court-judgments/metadata/parquet/year=2022/court=*/bench=*/metadata.parquet?s3_region=ap-south-1') GROUP BY court;"
+  }},
+  {{
+    "tool_name": "analyze",
+    "step_name": "calculate_average",
+    "tool_input": {{
+      "task": "From the case counts, find the top 5 courts and calculate their average number of cases.",
+      "code": "import pandas as pd\\n\\ndf = data_context['get_case_counts']\\ndf_sorted = df.sort_values(by='case_count', ascending=False)\\ntop_5_avg = df_sorted.head(5)['case_count'].mean()\\nresult = f'The average number of cases for the top 5 courts is {{top_5_avg:.2f}}'"
+    }}
+  }}
+]
+```
+ """
+
     try:
         plan_str = llm(prompt).strip()
         match = re.search(r'\[\s*\{.*\}\s*\]', plan_str, re.DOTALL)
         if not match:
             raise ValueError("LLM did not return a valid JSON list.")
         
-        plan = json.loads(match.group(0))
-        logger.info(f"✅ Plan generated successfully: {plan}")
+        json_str = match.group(0)
+
+        plan = json.loads(json_str)
+        logger.info(f"✅ Plan with code generated successfully: {plan}")
         return plan
     except Exception as e:
         logger.error(f"❌ Failed to generate or parse a valid plan: {e}")
@@ -61,7 +104,7 @@ You are an Expert AI Planner. Your role is to create the most logical and effici
 
 def handle_task(task_text: str, attachments: dict = None, max_global_retries: int = 1) -> dict:
     """
-    Main agent logic that generates a plan and orchestrates the autonomous tools.
+    Main agent logic that gets a plan with pre-written code and orchestrates the tools.
     """
     logger.info("📥 Received task: %s", task_text.strip())
     full_task_text = task_text.strip()
@@ -69,16 +112,21 @@ def handle_task(task_text: str, attachments: dict = None, max_global_retries: in
     for attempt in range(max_global_retries):
         logger.info(f"--- Starting Agent Execution: Attempt {attempt + 1} of {max_global_retries} ---")
         
+        execution_log = []
+        
         results = {
             "task": full_task_text,
-            "reasoning": "Planner-based execution with autonomous tools. See logs for details.",
+            "reasoning": None,
             "dataframe_preview": "",
             "final_answers": None,
-            "error": None
+            "error": None,
+            "execution_log": execution_log
         }
 
         try:
-            plan = get_plan(full_task_text)
+            plan = get_plan_with_code(full_task_text)
+            results["reasoning"] = json.dumps(plan, indent=2)
+            
             data_context = {}
             
             for i, step in enumerate(plan):
@@ -89,27 +137,23 @@ def handle_task(task_text: str, attachments: dict = None, max_global_retries: in
                 logger.info(f"--- Step {i+1} ({step_name}): Executing Tool: {tool_name} ---")
 
                 step_result = None
-                if tool_name == "duckdb_runner.generate_and_run_query":
-                    if not isinstance(tool_input, dict):
-                        raise TypeError(f"Expected a dictionary for duckdb_runner input, but got {type(tool_input)}")
-                    
-                    task_for_tool = tool_input.get("task")
-                    if not task_for_tool:
-                        raise ValueError("Plan for 'duckdb_runner' tool is missing a 'task' in its input.")
-                    
-                    step_result = generate_and_run_query(task=task_for_tool)
+                if tool_name == "duckdb_runner":
+                    step_result = execute_query(code=tool_input, task=full_task_text, execution_log=execution_log)
                 
-                elif tool_name == "fetch.extract_relevant_data":
+                elif tool_name == "fetch":
                     if not isinstance(tool_input, dict):
                         raise TypeError(f"Expected a dictionary for fetch tool input, but got {type(tool_input)}")
+                    code = tool_input.get("code")
                     url = tool_input.get("url")
-                    task_desc = tool_input.get("task_description")
-                    if not url:
-                        raise ValueError("Plan for 'fetch' tool is missing a URL.")
-                    step_result = extract_relevant_data(url, task_desc)
+                    task = tool_input.get("task", full_task_text)
+                    step_result = execute_fetch(code=code, url=url, task=task, execution_log=execution_log)
 
-                elif tool_name == "analyze.analyze_data":
-                    step_result = analyze_data(data_context, full_task_text)
+                elif tool_name == "analyze":
+                    if not isinstance(tool_input, dict):
+                        raise TypeError(f"Expected a dictionary for analyze tool input, but got {type(tool_input)}")
+                    code = tool_input.get("code")
+                    task = tool_input.get("task", full_task_text)
+                    step_result = execute_analysis(code=code, data_context=data_context, task=task, execution_log=execution_log)
                 
                 else:
                     raise ValueError(f"Unknown tool in plan: {tool_name}")
@@ -119,7 +163,11 @@ def handle_task(task_text: str, attachments: dict = None, max_global_retries: in
                 if isinstance(step_result, pd.DataFrame):
                     results["dataframe_preview"] += f"\n--- Preview for Step: {step_name} ---\n{step_result.head().to_markdown()}"
                 else:
-                    results["final_answers"] = step_result
+                    if isinstance(step_result, dict):
+                        results["final_answers"] = json.dumps(step_result, indent=2)
+                    else:
+                        results["final_answers"] = step_result
+
 
             logger.info("✅✅✅ Task completed successfully on global attempt %d!", attempt + 1)
             return results
