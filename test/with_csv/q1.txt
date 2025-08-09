@@ -1,0 +1,31 @@
+The NYC 311 Service Requests dataset contains millions of service requests submitted by the public to the City of New York.
+It includes information such as complaint type, location, date created, borough, and agency responsible.
+
+- Covers all five NYC boroughs
+- Millions of records from 2010 to present
+- Publicly available via NYC Open Data portal
+
+A csv fill will be attached to this question called q1.csv
+Structure of the CSV file (columns of interest):
+
+- created_date (datetime): The date and time when the request was created.
+- complaint_type (string): The type of complaint or request.
+- borough (string): Borough name (e.g., MANHATTAN, BROOKLYN, QUEENS, BRONX, STATEN ISLAND).
+- agency (string): The NYC agency assigned to handle the request.
+
+Here is an example row:
+
+created_date,complaint_type,borough,agency
+2018-01-02T10:20:00,Noise - Residential,MANHATTAN,NYPD
+
+Answer the following questions and respond with a JSON object containing the answer.
+
+Which NYC agency is assigned to the most complaints in the dataset?
+
+What are the top 3 most common complaint types in the BRONX?
+
+On which date were the most 311 complaints created?
+
+What is the total number of "Traffic Signal Condition" complaints in STATEN ISLAND?
+
+How many unique complaint types were reported by the Department of Transportation (DOT)?

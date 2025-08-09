@@ -1,0 +1,39 @@
+The Global CO₂ Emissions dataset contains annual carbon dioxide emissions for countries worldwide.
+It includes information such as country name, year, total emissions, and per capita emissions.
+
+- Covers over 200 countries
+- Data from 1750 to the most recent year
+- Available in open-source formats (CSV, XLSX)
+
+Structure of the Excel file (columns of interest):
+
+- country (string): Country name
+- year (integer): Year of observation
+- co2 (float): Annual CO₂ emissions (million tonnes)
+- co2_per_capita (float): CO₂ emissions per person (tonnes)
+
+Sample row:
+country,year,co2,co2_per_capita
+India,2020,2442.38,1.78
+
+Answer the following questions and respond with a JSON object containing the answer:
+
+Which 5 countries have the highest total CO2 emissions in the most recent year available in the dataset?
+
+What is the year-over-year percentage growth of coal-based CO2 emissions for China between 2010 and 2020?
+
+Create a line chart that visualizes the trend of total CO2 emissions for the United States, India, and the United Kingdom from 1990 to the latest year in the data.
+
+What is the average co2_per_capita for countries in Africa versus countries in Europe for the year 2019?
+
+Which country has the highest energy_per_capita in the year 2021?
+
+Calculate the correlation between GDP and total CO2 emissions for all countries in the year 2018.
+
+Create a bar chart showing the top 10 countries with the highest cumulative CO2 emissions.
+
+What is the percentage contribution of oil, coal, and gas to the total CO2 emissions for Germany in the year 2020?
+
+Identify all countries where the co2_growth_prct was negative in the year 2020, indicating a decrease in emissions.
+
+Create a scatter plot of gdp vs. co2 for all countries in the most recent year, and color-code the points by continent.

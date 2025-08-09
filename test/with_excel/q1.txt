@@ -1,0 +1,23 @@
+Dataset: Global Airport Passenger Traffic (Excel)
+
+Description:
+This Excel dataset contains fictional records representing passengers from various countries.
+We will treat the "Country" column as the passenger's departure country for the purpose of this analysis.
+
+Key columns:
+- First Name (string)
+- Last Name (string)
+- Email (string)
+- Gender (string)
+- Country (string)
+- Age (integer)
+
+Sample row:
+John,Doe,john.doe@example.com,Male,United States,34
+
+Questions:
+{
+  "Which country has the most passengers in the dataset?": "...",
+  "What's the average age of passengers from 'India'?": "...",
+  "Plot age distribution of passengers from 'India' as a histogram. Encode as base64 PNG data URI under 100,000 chars": "data:image/png;base64,..."
+}

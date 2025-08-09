@@ -129,6 +129,28 @@ You have been provided with a `data_context` dictionary containing one or more p
             exec(analysis_code, local_vars)
             final_result = local_vars.get("result")
 
+            # --- Ensure all images are returned as base64 data URIs ---
+            def to_base64_image(val):
+                import base64
+                import io
+                if hasattr(val, 'save') and callable(val.save):
+                    # It's a PIL Image
+                    buf = io.BytesIO()
+                    val.save(buf, format='PNG')
+                    b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                    return f"data:image/png;base64,{b64}"
+                if isinstance(val, (bytes, bytearray)):
+                    b64 = base64.b64encode(val).decode('utf-8')
+                    return f"data:image/png;base64,{b64}"
+                return val
+
+            if isinstance(final_result, dict):
+                for k, v in final_result.items():
+                    if hasattr(v, 'save') or isinstance(v, (bytes, bytearray)):
+                        final_result[k] = to_base64_image(v)
+            elif hasattr(final_result, 'save') or isinstance(final_result, (bytes, bytearray)):
+                final_result = to_base64_image(final_result)
+
             if final_result is not None:
                 logger.info("✅ Successfully executed analysis code.")
                 if hasattr(final_result, 'item'):
@@ -156,8 +178,6 @@ You have been provided with a `data_context` dictionary containing one or more p
             analysis_code = _correct_analysis_code(analysis_code, error_log, task, context_preview)
 
     raise RuntimeError("Analysis failed after all retries.")
-
-
 
 
 # # backend/toolkits/analyze.py
@@ -252,6 +272,28 @@ You have been provided with a `data_context` dictionary containing one or more p
 
 #             exec(analysis_code, local_vars)
 #             final_result = local_vars.get("result")
+
+#             # --- Ensure all images are returned as base64 data URIs ---
+#             def to_base64_image(val):
+#                 import base64
+#                 import io
+#                 if hasattr(val, 'save') and callable(val.save):
+#                     # It's a PIL Image
+#                     buf = io.BytesIO()
+#                     val.save(buf, format='PNG')
+#                     b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+#                     return f"data:image/png;base64,{b64}"
+#                 if isinstance(val, (bytes, bytearray)):
+#                     b64 = base64.b64encode(val).decode('utf-8')
+#                     return f"data:image/png;base64,{b64}"
+#                 return val
+
+#             if isinstance(final_result, dict):
+#                 for k, v in final_result.items():
+#                     if hasattr(v, 'save') or isinstance(v, (bytes, bytearray)):
+#                         final_result[k] = to_base64_image(v)
+#             elif hasattr(final_result, 'save') or isinstance(final_result, (bytes, bytearray)):
+#                 final_result = to_base64_image(final_result)
 
 #             if final_result is not None:
 #                 logger.info("✅ Successfully executed analysis code.")

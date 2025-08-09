@@ -1,7 +1,7 @@
 # backend/main.py
 
 import logging
-from fastapi import FastAPI, Request, UploadFile, File
+from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -46,39 +46,41 @@ async def homepage(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+
+from typing import List
+from fastapi import Depends
+
+from fastapi import Form
+
 @app.post("/", response_class=HTMLResponse)
 async def analyze(
     request: Request,
     task: UploadFile = File(...),
-    attachment1: UploadFile = File(None),
-    attachment2: UploadFile = File(None),
-    attachment3: UploadFile = File(None),
+    attachments: List[UploadFile] = File(None),
 ):
     logger.info("POST / - Analysis task received.")
     try:
         task_text = (await task.read()).decode("utf-8")
         logger.info("Task text successfully decoded.")
 
-        attachments = {}
-        for i, uploaded_file in enumerate([attachment1, attachment2, attachment3]):
-            if uploaded_file and uploaded_file.filename:
-                logger.info(f"Processing attachment: {uploaded_file.filename}")
-                content = await uploaded_file.read()
-                attachments[uploaded_file.filename] = content
-            else:
-                logger.info(f"Attachment {i+1} not provided.")
+        attachments_dict = {}
+        if attachments:
+            for uploaded_file in attachments:
+                if uploaded_file and uploaded_file.filename:
+                    logger.info(f"Processing attachment: {uploaded_file.filename}")
+                    content = await uploaded_file.read()
+                    attachments_dict[uploaded_file.filename] = content
+        else:
+            logger.info("No attachments provided.")
 
-        result = handle_task(task_text, attachments)
+        result = handle_task(task_text, attachments_dict)
 
-        # --- THIS IS THE CORRECTED SECTION ---
-        # The result from handle_task is a dictionary. We pass its contents
-        # to the template, now including the 'final_answers' key.
         return templates.TemplateResponse("index.html", {
             "request": request,
             "task_text": result.get("task"),
             "reasoning": result.get("reasoning"),
             "dataframe_preview": result.get("dataframe_preview"),
-            "final_answers": result.get("final_answers"), # <-- THE FIX
+            "final_answers": result.get("final_answers"),
             "error": result.get("error")
         })
 

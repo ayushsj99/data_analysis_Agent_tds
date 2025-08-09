@@ -31,7 +31,7 @@ def llm(prompt: str) -> str:
             # CORRECTED OPENAI IMPLEMENTATION
             # Option 1: Using Chat Completions API (recommended and stable)
             response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4.1-mini",
                 messages=[
                     {"role": "user", "content": prompt}
                 ]

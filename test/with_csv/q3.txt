@@ -1,0 +1,28 @@
+The Global Earthquake dataset from USGS records all seismic activity for the past 30 days (with daily updates).
+It includes details such as time, location (lat/lon), depth, magnitude, and descriptive place info.
+
+- Covers global earthquake events over the most recent 30-day period
+- Freely downloadable CSV from USGS earthquake feed
+
+Important CSV columns:
+
+- time (datetime): When the earthquake occurred (UTC)
+- latitude (float): Epicenter latitude
+- longitude (float): Epicenter longitude
+- depth (float): Depth in kilometers
+- mag (float): Magnitude
+- place (string): Description of location
+- magType (string): Magnitude measurement scale (e.g., mb, Mw)
+
+Sample row:
+time,latitude,longitude,depth,mag,place,magType  
+2025-08-09T23:12:54.500Z,11.1234,-66.4567,10.0,4.5,92 km W of San Antonio de los Cobres, Argentina,mb
+
+Answer the following questions and respond with a JSON object containing the answer:
+
+{
+  "What is the maximum earthquake magnitude in the dataset?": "...",
+  "What's the average depth of earthquakes with magnitude ≥ 5?": "...",
+  "Plot magnitude vs. depth for all events as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": "data:image/webp;base64,..."
+}
+

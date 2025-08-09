@@ -46,10 +46,16 @@
         <h1>📊 Data Analyst Agent</h1>
         <p class="lead">Upload a .txt file with a URL or a data query for the agent to answer.</p>
         
+
         <form method="post" enctype="multipart/form-data" class="mb-4">
             <div class="mb-3">
                 <label for="task" class="form-label">**Upload your task (.txt)**</label>
                 <input class="form-control" type="file" id="task" name="task" required>
+            </div>
+            <div class="mb-3">
+                <label for="attachments" class="form-label">Upload additional documents (CSV, Excel, PDF, Image, etc.)</label>
+                <input class="form-control" type="file" id="attachments" name="attachments" multiple>
+                <div class="form-text">You can select multiple files.</div>
             </div>
             <button class="btn btn-primary" type="submit">Submit for Analysis</button>
         </form>
