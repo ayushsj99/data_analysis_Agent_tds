@@ -1,2 +1,13 @@
 sdk: docker
 app_port: 7860
+title: "Data Analysis Agent"
+emoji: "📊"
+colorFrom: "blue"
+colorTo: "purple"
+license: "mit"
+short_description: "AI-powered data analysis agent with web scraping, file processing, and visualization capabilities"
+python_version: "3.11"
+app_file: "backend/main.py"
+pinned: false
+suggested_hardware: "cpu-basic"
+suggested_storage: "small"

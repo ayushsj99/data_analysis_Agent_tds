@@ -2,6 +2,40 @@
 
 A robust, LLM-powered data analysis agent that can autonomously process, analyze, and visualize data from a wide variety of file types (CSV, Excel, PDF, images, etc.) and web sources. The agent uses advanced planning and tool orchestration to answer complex user questions, generate code, and return results in the requested format.
 
+## 🚀 Quick Start with Hugging Face Spaces
+
+### Deploy to Hugging Face Spaces
+
+1. **Create a new Space:**
+   - Go to [Hugging Face Spaces](https://huggingface.co/spaces)
+   - Click "Create new Space"
+   - Choose "Docker" as the SDK
+   - Upload your project files
+
+2. **Set Environment Variables:**
+   ```bash
+   OPENAI_API_KEY=your_openai_api_key_here
+   GOOGLE_API_KEY=your_google_api_key_here  # Optional for Gemini
+   ```
+
+3. **Your Space will automatically:**
+   - Build the Docker container
+   - Install all dependencies
+   - Start the web application on port 7860
+
+### Local Docker Deployment
+
+```bash
+# Build the Docker image
+docker build -t data-analysis-agent .
+
+# Run the container
+docker run -p 7860:7860 \
+  -e OPENAI_API_KEY=your_key_here \
+  -e GOOGLE_API_KEY=your_key_here \
+  data-analysis-agent
+```
+
 ## Features
 - **Multi-file Upload:** Upload any number of files (CSV, Excel, PDF, images, etc.) for analysis.
 - **Automatic Tool Selection:** The agent intelligently chooses the right tool (file handler, DuckDB, web fetch, etc.) based on your question and the uploaded files.
@@ -13,9 +47,9 @@ A robust, LLM-powered data analysis agent that can autonomously process, analyze
 - **Modern Frontend:** Clean, Bootstrap-based web UI for uploading tasks and files, and viewing results.
 
 ## Requirements
-- Python 3.9+
-- pip
-- Node.js (for advanced frontend development, optional)
+- Python 3.11+
+- Docker (for containerized deployment)
+- OpenAI API key or Google API key for LLM access
 
 ### Python dependencies
 Install all required Python packages:
@@ -23,18 +57,18 @@ Install all required Python packages:
 pip install -r requirements.txt
 ```
 
-## Usage
+## Local Development
 
 ### 1. Start the Backend
 Run the FastAPI backend (from the project root):
 ```bash
-uvicorn backend.main:app --reload
+uvicorn backend.main:app --reload --port 7860
 ```
 
 ### 2. Open the Frontend
 Open your browser and go to:
 ```
-http://localhost:8000/
+http://localhost:7860/
 ```
 
 ### 3. Submit a Task
@@ -45,6 +79,24 @@ http://localhost:8000/
 ### 4. View Results
 - The agent will display its plan, code, data previews, and final answers (including plots/images as inline previews).
 - Errors and logs are shown for transparency and debugging.
+
+## Docker Configuration
+
+The project includes optimized Docker configuration for production deployment:
+
+- **Multi-stage build** for smaller image size
+- **System dependencies** for PDF processing, image handling, and scientific computing
+- **Security hardening** with non-root user
+- **Health checks** for monitoring
+- **Proper caching** with .dockerignore
+- **Environment variable support** for API keys
+
+## Environment Variables
+
+- `OPENAI_API_KEY`: Your OpenAI API key (required if using OpenAI)
+- `GOOGLE_API_KEY`: Your Google Generative AI API key (required if using Gemini)
+- `LLM_PROVIDER`: Set to "openai" or "gemini" (defaults to "openai")
+- `MPLBACKEND`: Set to "Agg" for server environments (auto-configured in Docker)
 
 ## Example Task
 **Task file (`task.txt`):**

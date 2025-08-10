@@ -1,23 +1,55 @@
-Dataset: Global Airport Passenger Traffic (Excel)
+The Airline Flights dataset contains information about flight bookings in India. It includes details such as airline, source city, destination city, departure and arrival times, number of stops, class, duration, days left for departure, and price.
 
-Description:
-This Excel dataset contains fictional records representing passengers from various countries.
-We will treat the "Country" column as the passenger's departure country for the purpose of this analysis.
+- Covers major Indian cities.
+- Contains over 300,000 flight records.
+- Publicly available dataset for analysis.
 
-Key columns:
-- First Name (string)
-- Last Name (string)
-- Email (string)
-- Gender (string)
-- Country (string)
-- Age (integer)
+A csv file will be attached to this question called `q1.xlsx`.
 
-Sample row:
-John,Doe,john.doe@example.com,Male,United States,34
+**Structure of the CSV file (columns of interest):**
 
-Questions:
-{
-  "Which country has the most passengers in the dataset?": "...",
-  "What's the average age of passengers from 'India'?": "...",
-  "Plot age distribution of passengers from 'India' as a histogram. Encode as base64 PNG data URI under 100,000 chars": "data:image/png;base64,..."
-}
+-   `airline` (string): The name of the airline.
+-   `source_city` (string): The city from which the flight departs.
+-   `destination_city` (string): The city to which the flight arrives.
+-   `departure_time` (string): The time of day of departure (e.g., Evening, Morning).
+-   `arrival_time` (string): The time of day of arrival (e.g., Night, Afternoon).
+-   `stops` (string): The number of stops (e.g., zero, one, two_or_more).
+-   `class` (string): The class of travel (e.g., Economy, Business).
+-   `duration` (float): The duration of the flight in hours.
+-   `days_left` (integer): The number of days left for the flight departure.
+-   `price` (integer): The price of the flight ticket.
+
+**Here is an example row:**
+
+`airline,source_city,destination_city,departure_time,arrival_time,stops,class,duration,days_left,price`
+`SpiceJet,Delhi,Mumbai,Evening,Night,zero,Economy,2.17,1,5953`
+
+**Answer the following questions and respond with a python list object containing the answer.**
+
+### Question 1
+
+Which airline has the highest average flight price for business class tickets?
+
+### Question 2
+
+What are the top 5 most frequent flight routes (source\_city to destination\_city)?
+
+### Question 3
+
+On which departure time of day are the flights with the longest duration most frequent?
+
+### Question 4
+
+What is the total number of "Vistara" flights from "Delhi" to "Mumbai" with zero stops?
+
+### Question 5
+
+How many unique airlines offer flights with a duration of less than 2 hours?
+
+### Question 6
+
+What is the average price of flights with more than 30 days left for departure, for each class?
+
+### Question 7
+
+What is the source city with the highest average flight price for flights that have 'two_or_more' stops?

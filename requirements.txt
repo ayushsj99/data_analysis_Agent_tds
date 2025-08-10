@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pandas
 matplotlib
 beautifulsoup4
@@ -20,7 +20,11 @@ scipy==1.16.1
 altair==5.5.0
 scikit-learn==1.7.1
 altair-viewer==0.4.0
-altair
 altair-saver
 pdfplumber==0.11.7
 openpyxl==3.1.5
+pillow
+numpy
+openai
+google-generativeai
+statsmodels

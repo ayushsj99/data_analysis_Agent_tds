@@ -101,14 +101,17 @@
                 
                 {% if final_answers %}
                     <h4 class="mt-4">✅ Final Answers</h4>
-                    <!-- --- THIS IS THE FIX: Intelligent rendering logic --- -->
+                    <!-- --- DEBUG: Enhanced rendering logic with debugging --- -->
                     {# Check if final_answers is a dictionary (mapping) #}
                     {% if final_answers is mapping %}
                         <ul class="list-group">
                             {% for key, value in final_answers.items() %}
                                 <li class="list-group-item">
                                     <strong>{{ key }}</strong>
-                                    {% if 'data:image' in value|string %}
+                                    <!-- DEBUG: Show value type and preview -->
+                                    <small class="text-muted">[Type: {{ value.__class__.__name__ }}, Preview: {{ value|string|truncate(50) }}]</small>
+                                    {% set value_str = value|string %}
+                                    {% if value_str.startswith('data:image') %}
                                         <p class="mt-2">Generated Plot:</p>
                                         <img src="{{ value }}" alt="Generated Plot" class="plot-image">
                                     {% else %}
@@ -122,7 +125,10 @@
                         <ul class="list-group">
                             {% for answer in final_answers %}
                                 <li class="list-group-item">
-                                    {% if 'data:image' in answer|string %}
+                                    <!-- DEBUG: Show answer type and preview -->
+                                    <small class="text-muted">[Type: {{ answer.__class__.__name__ }}, Preview: {{ answer|string|truncate(50) }}]</small>
+                                    {% set answer_str = answer|string %}
+                                    {% if answer_str.startswith('data:image') %}
                                         <p>Generated Plot:</p>
                                         <img src="{{ answer }}" alt="Generated Plot" class="plot-image">
                                     {% else %}
@@ -133,7 +139,15 @@
                         </ul>
                     {# Handle any other type (like a single string or number) #}
                     {% else %}
-                         <div class="list-group-item">{{ final_answers }}</div>
+                        <!-- DEBUG: Show final_answers type and preview -->
+                        <small class="text-muted">[Type: {{ final_answers.__class__.__name__ }}, Preview: {{ final_answers|string|truncate(50) }}]</small>
+                        {% set final_str = final_answers|string %}
+                        {% if final_str.startswith('data:image') %}
+                            <p>Generated Plot:</p>
+                            <img src="{{ final_answers }}" alt="Generated Plot" class="plot-image">
+                        {% else %}
+                            <div class="list-group-item">{{ final_answers }}</div>
+                        {% endif %}
                     {% endif %}
                 {% endif %}
             </div>

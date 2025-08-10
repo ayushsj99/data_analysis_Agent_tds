@@ -21,32 +21,82 @@ def llm_generate_scraping_code(soup: BeautifulSoup, task_description: str, previ
     """Generates scraping code as a fallback."""
     logger.info("🤖 Falling back to LLM code generation for scraping...")
     
-    error_context = f"\n\nA previous attempt failed with this error, please fix it:\n{previous_error}" if previous_error else ""
+    import traceback
+    
+    # Extract key HTML structure elements for context
+    html_text = str(soup)
+    
+    # Extract key structural elements (much smaller context)
+    key_elements = []
+    
+    # Get main structural tags
+    for tag in ['header', 'nav', 'main', 'section', 'article', 'div', 'table']:
+        elements = soup.find_all(tag, limit=3)  # Only first 3 of each
+        for elem in elements:
+            if elem.get('class') or elem.get('id'):
+                key_elements.append(f"<{tag} class='{elem.get('class')}' id='{elem.get('id')}'>")
+    
+    # Limit to 500 characters total
+    html_context = '\n'.join(key_elements)[:500]
+    
+    # Enhanced table detection and context (limited)
+    table_context = ""
+    tables = soup.find_all('table')
+    if tables:
+        table_context = f"\n\nTABLES FOUND: {len(tables)} table(s)\n"
+        # Only show info for first 2 tables to keep prompt small
+        for i, table in enumerate(tables[:2]):
+            # Get table headers (limit to 10)
+            headers = []
+            header_row = table.find('tr')
+            if header_row:
+                headers = [th.get_text(strip=True) for th in header_row.find_all(['th', 'td'])[:10]]
+            
+            # Get just 1 sample row
+            rows = table.find_all('tr')[1:2]  # Only 1 sample row
+            sample_data = []
+            for row in rows:
+                cells = [td.get_text(strip=True)[:20] for td in row.find_all(['td', 'th'])[:10]]  # Truncate cell content
+                sample_data.append(cells)
+            
+            table_context += f"Table {i+1}: Headers={headers[:5]}, Sample={sample_data}, Rows≈{len(table.find_all('tr'))}\n"
+    
+    # Truncate error context to essential info only
+    error_context = ""
+    if previous_error:
+        error_lines = previous_error.split('\n')
+        # Keep only the last few lines of the error (most relevant)
+        essential_error = '\n'.join(error_lines[-3:])[:300]
+        error_context = f"\n\nPREVIOUS ERROR: {essential_error}"
 
     prompt = f"""
 You are an expert Python scraping assistant. Your primary method failed, so you must now write manual scraping code.
 
-HTML SNIPPET:
----
-{soup.prettify()[:5000]}
----
+TASK: {task_description}
 
-TASK:
----
-{task_description}
----
+WEBSITE STRUCTURE:
+{html_context}
+{table_context}
+
+BASIC HTML PREVIEW (first 800 chars):
+{soup.prettify()[:800]}
 {error_context}
 
 INSTRUCTIONS:
-1.  Write a Python script using the `BeautifulSoup` and `pandas` libraries.
-2.  The script will have access to a pre-populated `soup` variable.
-3.  The script MUST assign the final, raw pandas DataFrame to a variable named `result`.
-4.  **IMPORTANT: Your output must be ONLY the raw Python code.**
+1. Analyze the HTML structure to understand the layout
+2. Write Python code using BeautifulSoup and pandas
+3. Use the pre-populated `soup` variable
+4. Extract data matching the TASK exactly
+5. Assign final DataFrame to variable named `result`
+6. Handle data cleaning and validation
+7. **Output ONLY raw Python code**
+
+VALIDATION: Ensure DataFrame is relevant to task, has proper columns, and contains meaningful data.
 """
     raw_code = llm(prompt)
     return extract_python_code(raw_code)
 
-def extract_relevant_data(url: str, task_description: str, max_retries: int = 2) -> pd.DataFrame:
+def extract_relevant_data(url: str, task_description: str, max_retries: int = 10) -> pd.DataFrame:
     """
     Extracts a relevant DataFrame from a URL.
     
@@ -74,21 +124,29 @@ def extract_relevant_data(url: str, task_description: str, max_retries: int = 2)
             logger.info("Only one table found, returning it directly.")
             return tables[0]
 
-        # If multiple tables, ask LLM to pick the right one
+        # If multiple tables, ask LLM to pick the right one (optimized prompt)
         selection_prompt = f"""
-You are an expert data assistant. I have extracted {len(tables)} tables from a webpage.
-Based on the user's task, please tell me which table index (0, 1, 2, etc.) is the most relevant.
+Select the most relevant table for this task: "{task_description}"
 
-USER TASK:
-"{task_description}"
-
-TABLE PREVIEWS:
----
+Found {len(tables)} tables:
 """
         for i, df in enumerate(tables):
-            selection_prompt += f"TABLE INDEX {i}:\n{df.head().to_string()}\n\n---\n"
+            # Show only essential information - much smaller preview
+            preview_rows = min(5, len(df))  # Only 5 rows max
+            table_preview = df.head(preview_rows).to_string(max_rows=5, max_cols=10, max_colwidth=15)
+            
+            # Basic table information only
+            table_info = f"Shape: {df.shape}"
+            column_names = f"Columns: {list(df.columns)[:10]}"  # Max 10 columns
+            
+            selection_prompt += f"""
+Table {i}: {table_info} | {column_names}
+Preview:
+{table_preview[:500]}  
+
+"""
         
-        selection_prompt += "Return ONLY the integer index of the most relevant table."
+        selection_prompt += "Return ONLY the table index number (0, 1, 2, etc.)."
 
         llm_response = llm(selection_prompt).strip()
         best_index = int(re.search(r'\d+', llm_response).group())
@@ -110,12 +168,31 @@ TABLE PREVIEWS:
             local_vars = {"soup": soup, "pd": pd, "result": None}
             exec(scraping_code, {}, local_vars)
             df = local_vars.get("result")
-            if isinstance(df, pd.DataFrame):
-                logger.info(f"✅ Fallback LLM generation succeeded on attempt {attempt + 1}.")
-                return df
-            raise ValueError("Fallback code did not return a DataFrame.")
+            
+            # Validate that the result is appropriate for the task
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                # Check if the scraped data is relevant to the task
+                logger.info(f"✅ Generated DataFrame with shape {df.shape}")
+                logger.info(f"DataFrame columns: {list(df.columns)}")
+                logger.info(f"Sample data:\n{df.head().to_string()}")
+                
+                # Additional validation: check if DataFrame has meaningful data
+                if len(df.columns) > 0 and len(df) > 0:
+                    logger.info(f"✅ Fallback LLM generation succeeded on attempt {attempt + 1}.")
+                    return df
+                else:
+                    raise ValueError("Generated DataFrame is empty or has no columns.")
+            elif isinstance(df, pd.DataFrame):
+                raise ValueError("Generated DataFrame is empty.")
+            else:
+                raise ValueError("Fallback code did not return a DataFrame.")
+                
         except Exception as e:
-            logger.warning(f"⚠️ Fallback attempt {attempt + 1} failed: {e}")
-            error_log = str(e)
+            import traceback
+            full_traceback = traceback.format_exc()
+            # Keep only essential error info to avoid huge prompts
+            error_summary = f"{type(e).__name__}: {str(e)}"
+            logger.warning(f"⚠️ Fallback attempt {attempt + 1} failed: {error_summary}")
+            error_log = error_summary  # Pass only summary instead of full traceback
 
     raise RuntimeError("All scraping strategies failed.")
