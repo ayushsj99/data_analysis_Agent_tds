@@ -20,6 +20,7 @@ scikit-learn>=1.7.1
 altair-viewer>=0.4.0
 altair-saver>=0.5.0
 pdfplumber>=0.11.7
+camelot-py[cv]>=0.11.0
 openpyxl>=3.1.5
 pillow
 numpy

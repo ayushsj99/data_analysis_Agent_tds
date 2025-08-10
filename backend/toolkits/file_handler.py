@@ -88,10 +88,10 @@ def _preview_file(file_path: str, file_type: str, max_rows: int = 5) -> str:
                     num_pages = len(pdf.pages)
                     first_page_text = pdf.pages[0].extract_text() if num_pages > 0 else ''
                     
-                    # Check for tables across multiple pages
+                    # Check for tables across all pages (not just first 5)
                     total_tables = 0
                     table_pages = []
-                    for i, page in enumerate(pdf.pages[:5]):  # Check first 5 pages
+                    for i, page in enumerate(pdf.pages):  # Check ALL pages
                         tables = page.extract_tables()
                         if tables:
                             total_tables += len(tables)
@@ -206,6 +206,17 @@ You are an expert image analyst. Based on the task description below, analyze th
 
 
     # Handle non-image files with code generation
+    # Extract page count for PDFs to include in prompt
+    pdf_page_info = ""
+    if file_type == 'pdf':
+        try:
+            import pdfplumber
+            with pdfplumber.open(file_path) as pdf:
+                num_pages = len(pdf.pages)
+                pdf_page_info = f" **CRITICAL FOR PDFs: This PDF has {num_pages} pages total - you MUST process ALL {num_pages} pages, not just the pages where tables were detected.**"
+        except:
+            pdf_page_info = " **CRITICAL FOR PDFs: Process ALL pages of the PDF.**"
+    
     base_prompt = f"""
 You are a Senior Python Data Scientist. Your job is to generate a Python script to solve a specific data task on a file, based on the following context.
 
@@ -241,7 +252,8 @@ This is the precise instruction for what the Python script you generate must acc
 3. Read the file from the path '{file_path}'.
 4. The script must assign the final answer to a variable named `result`.
 5. **STRICTLY FOLLOW the return format requirements above** - use pandas DataFrame for table data, string for text data.
-6. **For PDFs**: Use appropriate libraries (pdfplumber, tabula-py, camelot) to extract tables as DataFrames or text as strings based on the task requirements.
+6. **For PDFs**: Use appropriate libraries (pdfplumber, tabula-py, camelot) to extract tables as DataFrames or text as strings based on the task requirements.{pdf_page_info}
+   **CAMELOT USAGE**: Import camelot correctly: `import camelot` then use `camelot.read_pdf(file_path, pages='all', flavor='stream')` or `camelot.read_pdf(file_path, pages='all', flavor='lattice')`. If camelot fails, fallback to pdfplumber.
 7. Output ONLY the raw Python code. Do not include explanations or markdown.
 
 **YOUR SCRIPT:**

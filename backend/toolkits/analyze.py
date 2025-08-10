@@ -103,7 +103,7 @@ def analyze_data(data_context: dict, task: str, max_retries: int = 3, tool_input
             df_info = buffer.getvalue()
             
             # Optimize preview for large DataFrames
-            preview_rows = 3 if df_memory > 100 else 5  # Fewer rows for very large datasets
+            preview_rows = 10 if df_memory > 100 else 10  # Show at least 10 rows for better context
             
             context_preview += f"DataFrame `{name}` (Memory: {df_memory:.1f}MB):\n"
             context_preview += f"--- Head ({preview_rows} rows) ---\n{data.head(preview_rows).to_markdown()}\n"
@@ -120,7 +120,7 @@ def analyze_data(data_context: dict, task: str, max_retries: int = 3, tool_input
                     sub_df.info(buf=buffer)
                     df_info = buffer.getvalue()
                     
-                    preview_rows = 3 if df_memory > 50 else 5
+                    preview_rows = 10 if df_memory > 50 else 10  # Show at least 10 rows for better context
                     
                     context_preview += f"  DataFrame `{name}['{sub_name}']` (Memory: {df_memory:.1f}MB):\n"
                     context_preview += f"  --- Head ({preview_rows} rows) ---\n{sub_df.head(preview_rows).to_markdown()}\n"
