@@ -1,3 +1,16 @@
+---
+title: Data Analysis Agent
+emoji: 📊
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+suggested_hardware: cpu-basic
+suggested_storage: small
+---
+
 # Data Analysis Agent (TDS Project)
 
 A robust, LLM-powered data analysis agent that can autonomously process, analyze, and visualize data from a wide variety of file types (CSV, Excel, PDF, images, etc.) and web sources. The agent uses advanced planning and tool orchestration to answer complex user questions, generate code, and return results in the requested format.
